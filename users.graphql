@@ -1,0 +1,12 @@
+query($page: Int) {
+  Page(page: $page, perPage: 50) {
+    users(sort: WATCHED_TIME_DESC){
+      id
+      statistics {
+        anime {
+          count
+        }
+      }
+    }
+  }
+}

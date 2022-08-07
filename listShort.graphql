@@ -1,0 +1,12 @@
+query($userId: Int) {
+  MediaListCollection(userId: $userId, type: ANIME) {
+    lists {
+      entries {
+        media {
+          id
+        }
+        score(format: POINT_10_DECIMAL)
+      }
+    }
+  }
+}
