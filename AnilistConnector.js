@@ -4,6 +4,8 @@ import Anime, { addAnime, getFormatValue, getMyStatusValue, getNewAnimeSeriesId,
 import { addIfGenreNotExists } from './account/Genre.js'
 import { connect, myAniDB } from './database.js'
 
+const SQLITE_MAX_COMPOUND_SELECT = 500 // sqlite3 default limit
+
 async function makeAnilistQuery(graphqlFilePath, variables) {
     // const end = Date.now() + 750
     // while(Date.now() < end);
@@ -90,18 +92,45 @@ async function addUserListData(userId) {
     const data = (await makeAnilistQuery('./listShort.graphql', {userId: userId})).MediaListCollection
     
     if(!myAniDB) await connect()
+
+    let sql = ""
+    let recordCount = 0
+
+    const insertRecords = async () => {
+        if (recordCount === 0) return
+
+        const sqlPrefix = "insert into GlobalAnimeRatings (userId, animeId, score) select t1.userId, t1.animeId, t1.score from (\n"
+        const sqlSuffix = "\n" + ") t1 left join GlobalAnimeRatings t2\n"+
+        "on t1.userId = t2.userId and t1.animeId = t2.animeId\n"+
+        "where t1.animeId is null"
+
+        sql = sqlPrefix + sql + sqlSuffix
+
+        await myAniDB.run(sql)
+
+        sql = ""
+        recordCount = 0
+    }
+
+    const addRecord = async (entry) => {
+        if (sql !== "") sql += "union "
+        sql += `select ${userId} as userId, ${entry.media.id} as animeId, ${entry.score} as score\n`
+
+        recordCount++
+
+        if (recordCount === SQLITE_MAX_COMPOUND_SELECT) {
+            await insertRecords()
+        }
+    }
+
     for(const list of data.lists) {
         for(const entry of list.entries) {
-            try {
-                if(!entry.score) continue
+            if(!entry.score) continue
 
-                const sql = 'INSERT INTO GlobalAnimeRatings VALUES (' + userId +
-                    ', ' + entry.media.id + ', ' + entry.score + ')'
-                await myAniDB.run(sql)
-            } catch(e) {
-                console.log(e.message)
-            }
+            await addRecord(entry)
         }
+
+        await insertRecords()
     }
     console.log('Added data for user: ' + userId)
 }
