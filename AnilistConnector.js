@@ -7,12 +7,10 @@ import { connect, myAniDB } from './database.js'
 const SQLITE_MAX_COMPOUND_SELECT = 500 // sqlite3 default limit
 
 async function makeAnilistQuery(graphqlFilePath, variables) {
-    // const end = Date.now() + 750
-    // while(Date.now() < end);
-    console.log('request making...')
+    console.log(`Sending ${graphqlFilePath} request to anilist servers`)
     const query = fs.readFileSync(graphqlFilePath, 'utf-8')
 
-    return (await (await fetch('https://graphql.anilist.co/', {
+    const data = (await (await fetch('https://graphql.anilist.co/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -22,6 +20,23 @@ async function makeAnilistQuery(graphqlFilePath, variables) {
             query, variables
         })
     })).json()).data
+
+    if(data) return data
+    else { // This means we have crossed the rate limit and are timed out!
+        // Random small query just to get a response object
+        const query = 'query { Media(id: 1) { id } }'
+        const nextRequestTimestamp = (await fetch('https://graphql.anilist.co/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({query})
+        })).headers.get('X-RateLimit-Reset')
+
+        while(Date.now() < nextRequestTimestamp);
+        return makeAnilistQuery(graphqlFilePath, variables)
+    }
 }
 
 function getDateInMillis(date) {
@@ -99,22 +114,24 @@ async function addUserListData(userId) {
     const insertRecords = async () => {
         if (recordCount === 0) return
 
-        const sqlPrefix = "insert into GlobalAnimeRatings (userId, animeId, score) select t1.userId, t1.animeId, t1.score from (\n"
-        const sqlSuffix = "\n" + ") t1 left join GlobalAnimeRatings t2\n"+
-        "on t1.userId = t2.userId and t1.animeId = t2.animeId\n"+
-        "where t1.animeId is null"
+        const sqlPrefix = `INSERT INTO GlobalAnimeRatings (userId, animeId, score) 
+        SELECT t1.userId, t1.animeId, t1.score FROM (\n\t\t`
 
-        sql = sqlPrefix + sql + sqlSuffix
-
-        await myAniDB.run(sql)
+        const sqlSuffix = '\n\t) t1 LEFT JOIN GlobalAnimeRatings t2 ON t1.userId = t2.userId AND t1.animeId = t2.animeId \n' +
+        '\tWHERE t2.animeId IS NULL \n' +
+        'ON CONFLICT(userId, animeId) DO NOTHING'
+        
+        const debug = sqlPrefix + sql + sqlSuffix
+        await myAniDB.run(sqlPrefix + sql + sqlSuffix)
 
         sql = ""
         recordCount = 0
     }
 
     const addRecord = async (entry) => {
-        if (sql !== "") sql += "union "
-        sql += `select ${userId} as userId, ${entry.media.id} as animeId, ${entry.score} as score\n`
+        if (sql !== "") sql +=  'UNION \n\t\t'
+
+        sql += `SELECT ${userId} AS userId, ${entry.media.id} AS animeId, ${entry.score} AS score `
 
         recordCount++
 
@@ -132,22 +149,18 @@ async function addUserListData(userId) {
 
         await insertRecords()
     }
-    console.log('Added data for user: ' + userId)
+    console.log('Added data for user id: ' + userId)
 }
 
 export async function getUserIdDescWatchTime() {
     let users
-    let start = false
-    for(let page = 3; (users = (await makeAnilistQuery('./users.graphql', {page: page})).Page.users).length != 0; page++) {
-        console.log('-------- PAGE: ' + page + ' ------------')
+    for(let page = 1; (users = (await makeAnilistQuery('./users.graphql', {page: page})).Page.users).length != 0; page++) {
+        console.log(`\n---------- PAGE: ${page} ----------`)
         for(const user of users) {
-            if(user.id == 174234) {
-                start = true
-                continue
-            }
-            if(start && user.statistics.anime.count > 50) {
+            if(user.statistics.anime.count > 50) {
                 await addUserListData(user.id)
             }
         }
+        console.log('------------------------------\n')
     }
 }

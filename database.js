@@ -56,7 +56,7 @@ export async function connect() {
         CREATE TABLE IF NOT EXISTS GlobalAnimeRatings (
             userId INTEGER NOT NULL,
             animeId INTEGER NOT NULL,
-            score FLOAT,
+            score FLOAT NOT NULL,
             PRIMARY KEY(userId, animeId)
         )
     `)
