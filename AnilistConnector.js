@@ -95,6 +95,7 @@ async function addUserListData(userId) {
 
     let sql = ""
     let recordCount = 0
+    let dedupe = new Map()
 
     const insertRecords = async () => {
         if (recordCount === 0) return
@@ -102,7 +103,7 @@ async function addUserListData(userId) {
         const sqlPrefix = "insert into GlobalAnimeRatings (userId, animeId, score) select t1.userId, t1.animeId, t1.score from (\n"
         const sqlSuffix = "\n" + ") t1 left join GlobalAnimeRatings t2\n"+
         "on t1.userId = t2.userId and t1.animeId = t2.animeId\n"+
-        "where t1.animeId is null"
+        "where t2.animeId is null"
 
         sql = sqlPrefix + sql + sqlSuffix
 
@@ -113,6 +114,9 @@ async function addUserListData(userId) {
     }
 
     const addRecord = async (entry) => {
+        if (dedupe.get(entry.media.id)) return
+        dedupe.set(entry.media.id, true)
+
         if (sql !== "") sql += "union "
         sql += `select ${userId} as userId, ${entry.media.id} as animeId, ${entry.score} as score\n`
 
