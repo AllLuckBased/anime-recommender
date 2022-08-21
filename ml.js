@@ -5,7 +5,7 @@ import UserSimilarity, { insertUserSimilarity } from "./dao/UserSimilarityMinHea
 function calculateRootMeanSquare(similarityMap) {
     let accumulator = 0
     for(const value of similarityMap.values()) accumulator += value*value
-    return Math.sqrt(accumulator/similarityMap.size)
+    return accumulator/Math.sqrt(similarityMap.size)
 }
 
 export async function findSimilarUsersFor(userId) {
@@ -18,9 +18,9 @@ export async function findSimilarUsersFor(userId) {
     for(const user of users) {
         const globalUserAnime = new GlobalUserAnime(user.userId, 
             (await globalAniDB.all(`SELECT animeId, score FROM GlobalAnimeRatings WHERE userId = ${user.userId}`)))
-        
-        const userSimilarity = new UserSimilarity(user.userId, 
-            calculateRootMeanSquare(targetUserAnime.checkSimilarity(globalUserAnime)))
+        const intersection = targetUserAnime.checkSimilarity(globalUserAnime)
+        if (intersection.size == 0) continue
+        const userSimilarity = new UserSimilarity(user.userId, calculateRootMeanSquare(intersection))
         await insertUserSimilarity(userSimilarity)
     }
 }
