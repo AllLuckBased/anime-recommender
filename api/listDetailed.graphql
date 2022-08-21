@@ -1,0 +1,57 @@
+query($userId: Int) {
+  MediaListCollection(userId: $userId, type: ANIME) {
+    lists {
+      entries {
+        media {
+          id
+          relations {
+            edges {
+              relationType(version: 2)
+              node {
+                id
+                type
+              }
+            }
+          }
+          title {
+            romaji(stylised: false)
+            english(stylised: false)
+          }
+          format
+          episodes
+          nextAiringEpisode {
+            episode
+          }
+          duration
+          status(version: 2)
+          startDate {
+            year
+            month
+            day
+          }
+          endDate {
+            year
+            month
+            day
+          }
+          genres
+        }
+        score(format: POINT_10_DECIMAL)
+        status
+        progress
+        startedAt {
+          year
+          month
+          day
+        }
+        completedAt {
+          year
+          month
+          day
+        }
+        repeat
+        notes
+      }
+    }
+  }
+}

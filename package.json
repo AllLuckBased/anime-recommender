@@ -1,17 +1,17 @@
 {
-  "name": "test",
+  "name": "anime-manager",
   "version": "1.0.0",
-  "description": "",
+  "description": "Anime Management and Recommendations Tool",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Chandrachur Mukherjee",
   "license": "ISC",
   "dependencies": {
-    "node-fetch": "^3.2.9",
+    "node-fetch": "^3.2.10",
     "sqlite": "^4.1.2",
-    "sqlite3": "^5.0.10"
+    "sqlite3": "^5.0.11"
   }
 }
